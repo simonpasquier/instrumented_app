@@ -1,10 +1,13 @@
 DOCKER_ID_USER = simonpasquier
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H-%M-%SZ)
+COMMIT_ID := $(shell git log --pretty=format:'%h' -n 1)
+GO_FLAGS := -ldflags "-X main.buildDate=$(BUILD_DATE) -X main.commitId=$(COMMIT_ID)"
 
 build:
-	go build .
+	go build $(GO_FLAGS) .
 
 buildstatic:
-	go build -tags netgo .
+	go build $(GO_FLAGS) -tags netgo .
 
 docker: buildstatic
 	@echo "Updating the local Docker image"

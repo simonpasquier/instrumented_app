@@ -28,6 +28,8 @@ import (
 )
 
 var (
+	buildDate string
+	commitId  string
 	// Business metrics
 	cpuTemp = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "cpu_temperature_celsius",
@@ -76,6 +78,15 @@ func init() {
 	prometheus.MustRegister(cpuVec)
 	prometheus.MustRegister(hdVec)
 	prometheus.MustRegister(counterVec)
+	if buildDate != "" && commitId != "" {
+		version := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name:        "version_info",
+			Help:        "Information about the app version.",
+			ConstLabels: prometheus.Labels{"build_date": buildDate, "commit_id": commitId},
+		})
+		version.Set(1)
+		prometheus.MustRegister(version)
+	}
 }
 
 func cpuHandler(w http.ResponseWriter, r *http.Request) {
