@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strconv"
 
-	//	"github.com/go-kit/kit/log"
-	//	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -118,6 +116,14 @@ func hdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func readyHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "Ready")
+}
+
+func healthyHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "Healthy")
+}
+
 func main() {
 	var listen = kingpin.Flag("listen", "Listen address").Default("127.0.0.1:8080").String()
 	kingpin.Parse()
@@ -127,6 +133,8 @@ func main() {
 		hdFailures.WithLabelValues(d)
 	}
 
+	http.Handle("/-/healthy", http.HandlerFunc(readyHandler))
+	http.Handle("/-/ready", http.HandlerFunc(healthyHandler))
 	http.Handle("/cpu", promhttp.InstrumentHandlerDuration(cpuVec, http.HandlerFunc(cpuHandler)))
 	http.Handle("/hd", promhttp.InstrumentHandlerDuration(hdVec, http.HandlerFunc(hdHandler)))
 	http.Handle("/metrics", promhttp.Handler())
