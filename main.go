@@ -138,5 +138,6 @@ func main() {
 	http.Handle("/cpu", promhttp.InstrumentHandlerDuration(cpuVec, http.HandlerFunc(cpuHandler)))
 	http.Handle("/hd", promhttp.InstrumentHandlerDuration(hdVec, http.HandlerFunc(hdHandler)))
 	http.Handle("/metrics", promhttp.Handler())
+	log.Println("Listening on", *listen)
 	log.Fatal(http.ListenAndServe(*listen, nil))
 }
