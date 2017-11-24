@@ -41,15 +41,23 @@ var (
 		[]string{"device"},
 	)
 	// HTTP handler metrics
-	cpuVec    *prometheus.HistogramVec
-	hdVec     *prometheus.HistogramVec
+	cpuVec     *prometheus.HistogramVec
+	hdVec      *prometheus.HistogramVec
+	counterVec = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Number of HTTP requests.",
+		},
+		[]string{"method", "code"},
+	)
+
 	hdDevices = []string{"sda", "sdb"}
 )
 
 func init() {
 	histogramOpts := prometheus.HistogramOpts{
 		Name:        "http_request_duration_seconds",
-		Help:        "A histogram of latencies for HTTP requests.",
+		Help:        "Histogram of latencies for HTTP requests.",
 		Buckets:     []float64{.25, .5, 1, 2.5, 5, 10},
 		ConstLabels: prometheus.Labels{"handler": "cpu"},
 	}
@@ -67,6 +75,7 @@ func init() {
 	prometheus.MustRegister(hdFailures)
 	prometheus.MustRegister(cpuVec)
 	prometheus.MustRegister(hdVec)
+	prometheus.MustRegister(counterVec)
 }
 
 func cpuHandler(w http.ResponseWriter, r *http.Request) {
@@ -135,9 +144,25 @@ func main() {
 
 	http.Handle("/-/healthy", http.HandlerFunc(readyHandler))
 	http.Handle("/-/ready", http.HandlerFunc(healthyHandler))
-	http.Handle("/cpu", promhttp.InstrumentHandlerDuration(cpuVec, http.HandlerFunc(cpuHandler)))
-	http.Handle("/hd", promhttp.InstrumentHandlerDuration(hdVec, http.HandlerFunc(hdHandler)))
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/cpu",
+		promhttp.InstrumentHandlerCounter(counterVec,
+			promhttp.InstrumentHandlerDuration(cpuVec,
+				http.HandlerFunc(cpuHandler),
+			),
+		),
+	)
+	http.Handle("/hd",
+		promhttp.InstrumentHandlerCounter(counterVec,
+			promhttp.InstrumentHandlerDuration(hdVec,
+				http.HandlerFunc(hdHandler),
+			),
+		),
+	)
+	http.Handle("/metrics",
+		promhttp.InstrumentHandlerCounter(counterVec,
+			promhttp.Handler(),
+		),
+	)
 	log.Println("Listening on", *listen)
 	log.Fatal(http.ListenAndServe(*listen, nil))
 }
