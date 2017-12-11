@@ -163,12 +163,14 @@ func (s *Server) healthyHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	var listen = kingpin.Flag("listen", "Listen address").Default("127.0.0.1:8080").String()
+	var listen2 = kingpin.Flag("listen2", "Additional listen address exposing only /metrics").Default("").String()
 	var auth = kingpin.Flag("basic-auth", "Basic authentication (eg <user>:<password>)").Default("").String()
 	kingpin.Parse()
 
 	var s *Server
 	userpass := strings.SplitN(*auth, ":", 2)
 	if len(userpass) == 2 {
+		log.Println("Basic authentication enabled")
 		s = &Server{username: userpass[0], password: userpass[1]}
 	} else {
 		s = &Server{}
@@ -200,6 +202,16 @@ func main() {
 			s.auth(promhttp.Handler().ServeHTTP),
 		),
 	)
+
+	if *listen2 != "" {
+		sm := http.NewServeMux()
+		sm.Handle("/metrics", promhttp.Handler())
+		log.Println("Listening on", *listen2, "(metrics only)")
+		go func() {
+			log.Fatal(http.ListenAndServe(*listen2, sm))
+		}()
+	}
+
 	log.Println("Listening on", *listen)
 	log.Fatal(http.ListenAndServe(*listen, nil))
 }
