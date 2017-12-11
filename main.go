@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -89,7 +90,23 @@ func init() {
 	}
 }
 
-func cpuHandler(w http.ResponseWriter, r *http.Request) {
+type Server struct {
+	username string
+	password string
+}
+
+func (s *Server) auth(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if s.username != "" && s.password != "" && (user != s.username || pass != s.password || !ok) {
+			http.Error(w, "Unauthorized.", 401)
+			return
+		}
+		fn(w, r)
+	}
+}
+
+func (s *Server) cpuHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		m := &dto.Metric{}
 		if cpuTemp.Write(m) == nil {
@@ -110,7 +127,7 @@ func cpuHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func hdHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) hdHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		for _, d := range hdDevices {
 			m := &dto.Metric{}
@@ -136,42 +153,51 @@ func hdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func readyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Ready")
 }
 
-func healthyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) healthyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Healthy")
 }
 
 func main() {
 	var listen = kingpin.Flag("listen", "Listen address").Default("127.0.0.1:8080").String()
+	var auth = kingpin.Flag("basic-auth", "Basic authentication (eg <user>:<password>)").Default("").String()
 	kingpin.Parse()
+
+	var s *Server
+	userpass := strings.SplitN(*auth, ":", 2)
+	if len(userpass) == 2 {
+		s = &Server{username: userpass[0], password: userpass[1]}
+	} else {
+		s = &Server{}
+	}
 
 	cpuTemp.Set(37.0)
 	for _, d := range hdDevices {
 		hdFailures.WithLabelValues(d)
 	}
 
-	http.Handle("/-/healthy", http.HandlerFunc(readyHandler))
-	http.Handle("/-/ready", http.HandlerFunc(healthyHandler))
+	http.Handle("/-/healthy", http.HandlerFunc(s.readyHandler))
+	http.Handle("/-/ready", http.HandlerFunc(s.healthyHandler))
 	http.Handle("/cpu",
 		promhttp.InstrumentHandlerCounter(counterVec,
 			promhttp.InstrumentHandlerDuration(cpuVec,
-				http.HandlerFunc(cpuHandler),
+				s.auth(http.HandlerFunc(s.cpuHandler)),
 			),
 		),
 	)
 	http.Handle("/hd",
 		promhttp.InstrumentHandlerCounter(counterVec,
 			promhttp.InstrumentHandlerDuration(hdVec,
-				http.HandlerFunc(hdHandler),
+				s.auth(http.HandlerFunc(s.hdHandler)),
 			),
 		),
 	)
 	http.Handle("/metrics",
 		promhttp.InstrumentHandlerCounter(counterVec,
-			promhttp.Handler(),
+			s.auth(promhttp.Handler().ServeHTTP),
 		),
 	)
 	log.Println("Listening on", *listen)

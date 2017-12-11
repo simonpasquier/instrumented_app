@@ -12,3 +12,17 @@ Increment the number of errors for the `sda` device:
 ```
 curl http://localhost:8080/hd -d sda
 ```
+
+## Usage
+
+```
+$ ./instrumented_app --help
+usage: instrumented_app [<flags>]
+
+Flags:
+  --help                     Show context-sensitive help (also try --help-long and --help-man).
+  --listen="127.0.0.1:8080"  Listen address
+  --basic-auth=""            Basic authentication (eg <user>:<password>)
+
+```
+
