@@ -22,7 +22,7 @@ usage: instrumented_app [<flags>]
 Flags:
   --help                     Show context-sensitive help (also try --help-long and --help-man).
   --listen="127.0.0.1:8080"  Listen address
-  --listen2=""               Additional listen address exposing only /metrics
+  --listen-metrics=""        Listen address for exposing metrics (default to 'listen' if blank)
   --basic-auth=""            Basic authentication (eg <user>:<password>)
 
 ```
