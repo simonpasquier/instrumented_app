@@ -90,12 +90,12 @@ func init() {
 	}
 }
 
-type Server struct {
+type server struct {
 	username string
 	password string
 }
 
-func (s *Server) auth(fn http.HandlerFunc) http.HandlerFunc {
+func (s *server) auth(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if s.username != "" && s.password != "" && (user != s.username || pass != s.password || !ok) {
@@ -106,7 +106,7 @@ func (s *Server) auth(fn http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *Server) cpuHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) cpuHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		m := &dto.Metric{}
 		if cpuTemp.Write(m) == nil {
@@ -127,7 +127,7 @@ func (s *Server) cpuHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) hdHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) hdHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		for _, d := range hdDevices {
 			m := &dto.Metric{}
@@ -153,11 +153,11 @@ func (s *Server) hdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Ready")
 }
 
-func (s *Server) healthyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) healthyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Healthy")
 }
 
@@ -167,13 +167,13 @@ func main() {
 	var auth = kingpin.Flag("basic-auth", "Basic authentication (eg <user>:<password>)").Default("").String()
 	kingpin.Parse()
 
-	var s *Server
+	var s *server
 	userpass := strings.SplitN(*auth, ":", 2)
 	if len(userpass) == 2 {
 		log.Println("Basic authentication enabled")
-		s = &Server{username: userpass[0], password: userpass[1]}
+		s = &server{username: userpass[0], password: userpass[1]}
 	} else {
-		s = &Server{}
+		s = &server{}
 	}
 
 	cpuTemp.Set(37.0)
