@@ -1,4 +1,4 @@
-// Copyright 2015 The Prometheus Authors
+// Copyright 2018 Simon Pasquier
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,76 +14,72 @@
 package main
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"math"
+	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	dto "github.com/prometheus/client_model/go"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
+	stages    = []string{"validation", "payment", "shipping"}
 	buildDate string
-	commitId  string
-	// Business metrics
-	cpuTemp = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "cpu_temperature_celsius",
-		Help: "Current temperature of the CPU.",
+	commitID  string
+	// (fake) business metrics
+	sessions = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "user_sessions",
+		Help: "Current number of user sessions.",
 	})
-	hdFailures = prometheus.NewCounterVec(
+	errOrders = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "hd_errors_total",
-			Help: "Number of hard-disk errors.",
+			Name: "order_errors_total",
+			Help: "Total number of order errors (slow moving counter).",
 		},
-		[]string{"device"},
+		[]string{"stage"},
+	)
+	orders = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "orders_total",
+			Help: "Total number of orders (fast moving counter).",
+		},
 	)
 	// HTTP handler metrics
-	cpuVec     *prometheus.HistogramVec
-	hdVec      *prometheus.HistogramVec
-	counterVec = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Number of HTTP requests.",
+	reqDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_duration_seconds",
+			Help:    "Histogram of latencies for HTTP requests.",
+			Buckets: []float64{.05, .1, .5, 1, 2.5, 5, 10},
 		},
-		[]string{"method", "code"},
+		[]string{"handler", "method", "code"},
 	)
-
-	hdDevices = []string{"sda", "sdb"}
+	reqSize = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_size_bytes",
+			Help:    "Histogram of response sizes for HTTP requests.",
+			Buckets: []float64{1024, 2048, 4096, 16384, 65536, 131072},
+		},
+		[]string{"handler", "method", "code"},
+	)
 )
 
 func init() {
-	histogramOpts := prometheus.HistogramOpts{
-		Name:        "http_request_duration_seconds",
-		Help:        "Histogram of latencies for HTTP requests.",
-		Buckets:     []float64{.25, .5, 1, 2.5, 5, 10},
-		ConstLabels: prometheus.Labels{"handler": "cpu"},
-	}
-	cpuVec = prometheus.NewHistogramVec(
-		histogramOpts,
-		[]string{"method"},
-	)
-	histogramOpts.ConstLabels = prometheus.Labels{"handler": "hd"}
-	hdVec = prometheus.NewHistogramVec(
-		histogramOpts,
-		[]string{"method"},
-	)
-
-	prometheus.MustRegister(cpuTemp)
-	prometheus.MustRegister(hdFailures)
-	prometheus.MustRegister(cpuVec)
-	prometheus.MustRegister(hdVec)
-	prometheus.MustRegister(counterVec)
-	if buildDate != "" && commitId != "" {
+	prometheus.MustRegister(errOrders)
+	prometheus.MustRegister(orders)
+	prometheus.MustRegister(sessions)
+	prometheus.MustRegister(reqDuration)
+	prometheus.MustRegister(reqSize)
+	if buildDate != "" && commitID != "" {
 		version := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name:        "version_info",
 			Help:        "Information about the app version.",
-			ConstLabels: prometheus.Labels{"build_date": buildDate, "commit_id": commitId},
+			ConstLabels: prometheus.Labels{"build_date": buildDate, "commit_id": commitID},
 		})
 		version.Set(1)
 		prometheus.MustRegister(version)
@@ -93,6 +89,24 @@ func init() {
 type server struct {
 	username string
 	password string
+}
+
+func updateMetrics(d time.Duration, done chan struct{}) {
+	t := time.NewTimer(d)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for {
+		select {
+		case <-t.C:
+			sessions.Set(float64(r.Intn(100)))
+			orders.Add(float64(r.Intn(5)))
+			for _, s := range stages {
+				errOrders.WithLabelValues(s).Add(math.Floor(float64(r.Intn(100)) / 97))
+			}
+			t.Reset(d)
+		case <-done:
+			return
+		}
+	}
 }
 
 func (s *server) auth(fn http.HandlerFunc) http.HandlerFunc {
@@ -106,59 +120,28 @@ func (s *server) auth(fn http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *server) cpuHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		m := &dto.Metric{}
-		if cpuTemp.Write(m) == nil {
-			io.WriteString(w, fmt.Sprintf("The cpu temperature is %.2f°C\n", m.GetGauge().GetValue()))
-		}
-	} else if r.Method == http.MethodPost {
-		s, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Error processing request", http.StatusInternalServerError)
-		}
-		if v, err := strconv.ParseFloat(string(s), 64); err == nil {
-			cpuTemp.Set(v)
-		} else {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-		}
-	} else {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *server) hdHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		for _, d := range hdDevices {
-			m := &dto.Metric{}
-			if hdFailures.WithLabelValues(d).Write(m) == nil {
-				io.WriteString(w,
-					fmt.Sprintf("The number of failures for %v is %.0f\n", d, m.GetCounter().GetValue()))
-			}
-		}
-	} else if r.Method == http.MethodPost {
-		s, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Error processing request", http.StatusInternalServerError)
-		}
-		for _, d := range hdDevices {
-			if string(s) == d {
-				hdFailures.WithLabelValues(d).Inc()
-				return
-			}
-		}
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-	} else {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
 func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Ready")
 }
 
 func (s *server) healthyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Healthy")
+}
+
+func (s *server) helloHandler(w http.ResponseWriter, _ *http.Request) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	time.Sleep(time.Duration(int64(r.Intn(1000))) * time.Millisecond)
+	io.WriteString(w, "Hello!")
+}
+
+func registerHandler(handleFunc func(pattern string, handler http.Handler), name string, handler http.HandlerFunc) {
+	handleFunc(name, promhttp.InstrumentHandlerDuration(
+		reqDuration.MustCurryWith(prometheus.Labels{"handler": name}),
+		promhttp.InstrumentHandlerResponseSize(
+			reqSize.MustCurryWith(prometheus.Labels{"handler": name}),
+			handler,
+		),
+	))
 }
 
 func main() {
@@ -176,43 +159,38 @@ func main() {
 		s = &server{}
 	}
 
-	cpuTemp.Set(37.0)
-	for _, d := range hdDevices {
-		hdFailures.WithLabelValues(d)
-	}
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		updateMetrics(time.Duration(time.Second), done)
+	}()
 
-	http.Handle("/-/healthy", http.HandlerFunc(s.readyHandler))
-	http.Handle("/-/ready", http.HandlerFunc(s.healthyHandler))
-	http.Handle("/cpu",
-		promhttp.InstrumentHandlerCounter(counterVec,
-			promhttp.InstrumentHandlerDuration(cpuVec,
-				s.auth(http.HandlerFunc(s.cpuHandler)),
-			),
-		),
-	)
-	http.Handle("/hd",
-		promhttp.InstrumentHandlerCounter(counterVec,
-			promhttp.InstrumentHandlerDuration(hdVec,
-				s.auth(http.HandlerFunc(s.hdHandler)),
-			),
-		),
-	)
+	registerHandler(http.Handle, "/-/healthy", http.HandlerFunc(s.readyHandler))
+	registerHandler(http.Handle, "/-/ready", http.HandlerFunc(s.readyHandler))
+	registerHandler(http.Handle, "/", s.auth(http.HandlerFunc(s.helloHandler)))
 
 	if *listenm != "" {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", s.auth(promhttp.Handler().ServeHTTP))
-		log.Println("Listening on", *listenm, "(metrics only)")
+		registerHandler(mux.Handle, "/metrics", s.auth(promhttp.Handler().ServeHTTP))
 		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			log.Println("Listening on", *listenm, "(metrics only)")
 			log.Fatal(http.ListenAndServe(*listenm, mux))
 		}()
 	} else {
-		http.Handle("/metrics",
-			promhttp.InstrumentHandlerCounter(counterVec,
-				s.auth(promhttp.Handler().ServeHTTP),
-			),
-		)
+		log.Println("Registering /metrics")
+		registerHandler(http.Handle, "/metrics", s.auth(promhttp.Handler().ServeHTTP))
 	}
 
-	log.Println("Listening on", *listen)
-	log.Fatal(http.ListenAndServe(*listen, nil))
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		log.Println("Listening on", *listen)
+		log.Fatal(http.ListenAndServe(*listen, nil))
+	}()
+
+	wg.Wait()
 }

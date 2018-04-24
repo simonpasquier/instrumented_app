@@ -1,17 +1,13 @@
 This is an example of application instrumented for Prometheus. By default it
 listens on port 8080 and exposes metrics on the `/metrics` endpoint.
 
-Set the CPU temperature metric:
+The root endpoint will respond with a random delay (1 second at most).
 
-```
-curl http://localhost:8080/cpu -d 42.0
-```
+Exposed metrics:
 
-Increment the number of errors for the `sda` device:
-
-```
-curl http://localhost:8080/hd -d sda
-```
+* `orders_total`, a fast moving counter.
+* `order_errors_total{stage=<stage>}`, a slow moving counter.
+* `user_sessions`, a gauge value randomly set between 0 and 100.
 
 ## Usage
 
