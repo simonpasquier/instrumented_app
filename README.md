@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/simonpasquier/instrumented_app.svg?branch=master)](https://travis-ci.com/simonpasquier/instrumented_app)
+
 This is an example of application instrumented for Prometheus. By default it
 listens on port 8080 and exposes metrics on the `/metrics` endpoint.
 
