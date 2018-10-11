@@ -1,3 +1,5 @@
+# Needed to use Docker
+# https://docs.travis-ci.com/user/docker/
 sudo: required
 
 services:
@@ -5,14 +7,27 @@ services:
 
 language: go
 
+os:
+- linux
+- windows
+
 go:
 - "1.x"
 
-script:
-- make docker
-
-deploy:
-  provider: script
-  script: bash scripts/docker-push.sh
-  on:
-    branch: master
+jobs:
+  include:
+    # Build binary + image on Linux
+    - stage: test
+      script: make docker
+      if: os = linux
+    # Only build binary on Windows
+    - stage: test
+      script: go build ./...
+      if: os != linux
+    - stage: deploy
+      name: "Deploy image to Docker Hub"
+      provider: script
+      script: bash scripts/docker-push.sh
+      if: os = linux
+      on:
+        branch: master
