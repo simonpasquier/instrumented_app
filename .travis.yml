@@ -26,7 +26,6 @@ jobs:
       if: os = windows
   exclude:
     - os: linux
-    - os: windows
 #    - stage: deploy
 #      name: "Deploy image to Docker Hub"
 #      provider: script
