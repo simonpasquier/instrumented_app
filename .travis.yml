@@ -1,9 +1,9 @@
 # Needed to use Docker
 # https://docs.travis-ci.com/user/docker/
-sudo: required
-
-services:
-- docker
+#sudo: required
+#
+#services:
+#- docker
 
 language: go
 
@@ -24,9 +24,9 @@ jobs:
     - stage: test
       script: go build ./...
       if: os = windows
-    - stage: deploy
-      name: "Deploy image to Docker Hub"
-      provider: script
-      script: bash scripts/docker-push.sh
-      on:
-        branch: master
+#    - stage: deploy
+#      name: "Deploy image to Docker Hub"
+#      provider: script
+#      script: bash scripts/docker-push.sh
+#      on:
+#        branch: master
