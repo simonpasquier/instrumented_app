@@ -1,28 +1,37 @@
 # Needed to use Docker
 # https://docs.travis-ci.com/user/docker/
-#sudo: required
-#
-#services:
-#- docker
+sudo: required
+
+services:
+- docker
 
 language: go
 
 go:
 - "1.x"
 
-jobs:
+script:
+  - |
+    (
+      set -Eeuo pipefail
+      set -x
+      if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
+        go build ./...
+      else
+        make docker
+      fi
+    )
+
+matrix:
   include:
-    # Build binary + image on Linux
     - stage: test
-      script: make docker
       os: linux
-    # Only build binary on Windows
     - stage: test
-      script: go build ./...
       os: windows
-#    - stage: deploy
-#      name: "Deploy image to Docker Hub"
-#      provider: script
-#      script: bash scripts/docker-push.sh
-#      on:
-#        branch: master
+    - stage: deploy
+      name: "Deploy image to Docker Hub"
+      provider: script
+      script: bash scripts/docker-push.sh
+      on:
+        branch: master
+      os: linux
