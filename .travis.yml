@@ -10,17 +10,17 @@ language: go
 go:
 - "1.x"
 
-script:
-  - |
-    (
-      set -Eeuo pipefail
-      set -x
-      if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
-        go build ./...
-      else
-        make docker
-      fi
-    )
+script: go build -v -x ./... || echo $?
+    #  - |
+    #    (
+    #      set -Eeuo pipefail
+    #      set -x
+    #      if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
+    #        go build ./...
+    #      else
+    #        make docker
+    #      fi
+    #    )
 
 matrix:
   include:
