@@ -7,10 +7,6 @@
 
 language: go
 
-os:
-- linux
-- windows
-
 go:
 - "1.x"
 
@@ -19,13 +15,11 @@ jobs:
     # Build binary + image on Linux
     - stage: test
       script: make docker
-      if: os = linux
+      os: linux
     # Only build binary on Windows
     - stage: test
       script: go build ./...
-      if: os = windows
-  exclude:
-    - os: linux
+      os: windows
 #    - stage: deploy
 #      name: "Deploy image to Docker Hub"
 #      provider: script
