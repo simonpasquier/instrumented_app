@@ -23,11 +23,10 @@ jobs:
     # Only build binary on Windows
     - stage: test
       script: go build ./...
-      if: os != linux
+      if: os = windows
     - stage: deploy
       name: "Deploy image to Docker Hub"
       provider: script
       script: bash scripts/docker-push.sh
-      if: os = linux
       on:
         branch: master
