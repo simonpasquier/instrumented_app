@@ -19,6 +19,8 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -26,12 +28,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/simonpasquier/instrumented_app/version"
 )
 
 var (
-	stages    = []string{"validation", "payment", "shipping"}
-	buildDate string
-	commitID  string
+	stages = []string{"validation", "payment", "shipping"}
 	// (fake) business metrics
 	sessions = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "user_sessions",
@@ -75,11 +77,11 @@ func init() {
 	prometheus.MustRegister(sessions)
 	prometheus.MustRegister(reqDuration)
 	prometheus.MustRegister(reqSize)
-	if buildDate != "" && commitID != "" {
+	if version.BuildDate != "" && version.Revision != "" {
 		version := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name:        "version_info",
+			Name:        "instrumented_app_info",
 			Help:        "Information about the app version.",
-			ConstLabels: prometheus.Labels{"build_date": buildDate, "commit_id": commitID},
+			ConstLabels: prometheus.Labels{"build_date": version.BuildDate, "version": version.Revision},
 		})
 		version.Set(1)
 		prometheus.MustRegister(version)
@@ -145,10 +147,18 @@ func registerHandler(handleFunc func(pattern string, handler http.Handler), name
 }
 
 func main() {
-	var listen = kingpin.Flag("listen", "Listen address").Default("127.0.0.1:8080").String()
-	var listenm = kingpin.Flag("listen-metrics", "Listen address for exposing metrics (default to 'listen' if blank)").Default("").String()
-	var auth = kingpin.Flag("basic-auth", "Basic authentication (eg <user>:<password>)").Default("").String()
-	kingpin.Parse()
+	app := kingpin.New(filepath.Base(os.Args[0]), "Demo application for Prometheus instrumentation.")
+	app.Version(version.Revision)
+	app.HelpFlag.Short('h')
+
+	var listen = app.Flag("listen", "Listen address").Default("127.0.0.1:8080").String()
+	var listenm = app.Flag("listen-metrics", "Listen address for exposing metrics (default to 'listen' if blank)").Default("").String()
+	var auth = app.Flag("basic-auth", "Basic authentication (eg <user>:<password>)").Default("").String()
+
+	_, err := app.Parse(os.Args[1:])
+	if err != nil {
+		log.Fatalf("%s, try --help", err)
+	}
 
 	var s *server
 	userpass := strings.SplitN(*auth, ":", 2)

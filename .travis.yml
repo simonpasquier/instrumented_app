@@ -1,5 +1,3 @@
-sudo: required
-
 services:
 - docker
 
@@ -12,6 +10,7 @@ env:
   GO111MODULE: "on"
 
 script:
+- go get github.com/prometheus/promu@v0.2.0
 - make docker
 
 deploy:
