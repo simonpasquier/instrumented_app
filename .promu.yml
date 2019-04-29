@@ -1,0 +1,18 @@
+repository:
+    path: github.com/simonpasquier/instrumented_app
+build:
+    binaries:
+        - name: instrumented_app
+          path: .
+    flags: -a -tags netgo
+    ldflags: |
+        -X github.com/simonpasquier/instrumented_app/version.Revision={{ printf "%s-%.8s" .Version .Revision }}
+        -X github.com/simonpasquier/instrumented_app/version.BuildDate={{ date "20060102-15:04:05" }}
+tarball:
+    files:
+        - LICENSE
+crossbuild:
+    platforms:
+        - linux/amd64
+        - darwin/amd64
+        - windows/amd64

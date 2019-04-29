@@ -1,18 +1,15 @@
 DOCKER_ID_USER = simonpasquier
-BUILD_DATE := $(shell date -u +%Y-%m-%dT%H-%M-%SZ)
-COMMIT_ID := $(shell git log --pretty=format:'%h' -n 1)
-GO_FLAGS := -ldflags "-X main.buildDate=$(BUILD_DATE) -X main.commitId=$(COMMIT_ID)"
 
+.PHONY: build
 build:
-	go build $(GO_FLAGS) .
+	promu build -v
 
-buildstatic:
-	go build $(GO_FLAGS) -tags netgo .
-
-docker: buildstatic
+.PHONY: docker
+docker: build
 	@echo "Updating the local Docker image"
 	docker build -t instrumented_app:latest .
 
+.PHONY: pushimage
 pushimage: docker
 	@echo "Pushing image to $(DOCKER_ID_USER)/instrumented_app"
 	docker tag instrumented_app:latest $(DOCKER_ID_USER)/instrumented_app
