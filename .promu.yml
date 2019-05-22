@@ -1,3 +1,5 @@
+go:
+    version: 1.12
 repository:
     path: github.com/simonpasquier/instrumented_app
 build:
