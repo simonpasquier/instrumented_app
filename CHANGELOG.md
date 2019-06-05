@@ -1,3 +1,9 @@
+## 0.0.5-rc0 - 2019-06-05
+
+This is a pre-release test.
+
+* No real change.
+
 ## 0.0.4 - 2019-06-05
 
 * And another one with a signed tag.
