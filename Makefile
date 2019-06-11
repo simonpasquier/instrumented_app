@@ -1,6 +1,5 @@
 FIRST_GOPATH      := $(firstword $(subst :, ,$(shell go env GOPATH)))
 GO_BUILD_PLATFORM ?= linux-amd64
-REGISTRY_ID_USER   = simonpasquier
 PREFIX            ?= $(shell pwd)
 PROMU             := $(FIRST_GOPATH)/bin/promu
 PROMU_VERSION     ?= 0.4.0
@@ -27,6 +26,6 @@ container-build: build
 
 .PHONY: push
 push: container-build
-	@echo "Pushing image to $(REGISTRY_ID_USER)/instrumented_app"
-	docker tag instrumented_app:latest $(REGISTRY_ID_USER)/instrumented_app
-	docker push quay.io/$(REGISTRY_ID_USER)/instrumented_app
+	@echo "Pushing image to quay.io/simonpasquier/instrumented_app"
+	docker tag instrumented_app:latest quay.io/simonpasquier/instrumented_app
+	docker push quay.io/simonpasquier/instrumented_app
