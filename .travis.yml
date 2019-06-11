@@ -10,11 +10,10 @@ env:
   GO111MODULE: "on"
 
 script:
-- go get github.com/prometheus/promu@v0.2.0
-- make docker
+- make container-build
 
 deploy:
   provider: script
-  script: bash scripts/docker-push.sh
+  script: bash scripts/image-push.sh
   on:
     branch: master
