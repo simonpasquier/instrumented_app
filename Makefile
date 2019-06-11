@@ -1,6 +1,6 @@
 FIRST_GOPATH      := $(firstword $(subst :, ,$(shell go env GOPATH)))
 GO_BUILD_PLATFORM ?= linux-amd64
-DOCKER_ID_USER     = simonpasquier
+REGISTRY_ID_USER   = simonpasquier
 PREFIX            ?= $(shell pwd)
 PROMU             := $(FIRST_GOPATH)/bin/promu
 PROMU_VERSION     ?= 0.4.0
@@ -20,13 +20,13 @@ $(PROMU):
 	cp $(PROMU_TMP)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM)/promu $(FIRST_GOPATH)/bin/promu
 	rm -r $(PROMU_TMP)
 
-.PHONY: docker
-docker: build
-	@echo "Updating the local Docker image"
+.PHONY: container-build
+container-build: build
+	@echo "Updating the local container image"
 	docker build -t instrumented_app:latest .
 
-.PHONY: pushimage
-pushimage: docker
-	@echo "Pushing image to $(DOCKER_ID_USER)/instrumented_app"
-	docker tag instrumented_app:latest $(DOCKER_ID_USER)/instrumented_app
-	docker push $(DOCKER_ID_USER)/instrumented_app
+.PHONY: push
+push: container-build
+	@echo "Pushing image to $(REGISTRY_ID_USER)/instrumented_app"
+	docker tag instrumented_app:latest $(REGISTRY_ID_USER)/instrumented_app
+	docker push quay.io/$(REGISTRY_ID_USER)/instrumented_app
