@@ -13,6 +13,7 @@ script:
 - make container-build
 
 deploy:
+  skip_cleanup: true
   provider: script
   script: bash scripts/image-push.sh
   on:
