@@ -13,8 +13,13 @@ script:
 - make container-build
 
 deploy:
-  skip_cleanup: true
+- skip_cleanup: true
   provider: script
   script: bash scripts/image-push.sh
   on:
     branch: master
+- skip_cleanup: true
+  provider: script
+  script: bash scripts/release-push.sh
+  on:
+    tags: true
