@@ -1,3 +1,7 @@
+## 0.0.6 / 2019-06-24
+
+* Another test with new `promu release`.
+
 ## 0.0.5 / 2019-06-05
 
 * Test with new `promu release`.
