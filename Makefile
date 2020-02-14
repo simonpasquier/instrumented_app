@@ -12,7 +12,7 @@ promu: $(PROMU)
 
 $(PROMU):
 	cd ..
-	GO111MODULE=on GOOS= GOARCH= go get github.com/prometheus/promu@master
+	GO111MODULE=on GOOS= GOARCH= go install github.com/prometheus/promu
 
 .PHONY: container-build
 container-build: build
