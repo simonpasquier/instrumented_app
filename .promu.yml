@@ -1,12 +1,12 @@
 go:
-    version: 1.12
+    version: 1.13
 repository:
     path: github.com/simonpasquier/instrumented_app
 build:
     binaries:
         - name: instrumented_app
           path: .
-    flags: -a -tags netgo
+    flags: -tags netgo
     ldflags: |
         -X github.com/simonpasquier/instrumented_app/version.Revision={{ printf "%s-%.8s" .Version .Revision }}
         -X github.com/simonpasquier/instrumented_app/version.BuildDate={{ date "20060102-15:04:05" }}
@@ -16,5 +16,25 @@ tarball:
 crossbuild:
     platforms:
         - linux/amd64
+        - linux/386
         - darwin/amd64
+        - darwin/386
         - windows/amd64
+        - windows/386
+        - freebsd/amd64
+        - freebsd/386
+        - openbsd/amd64
+        - openbsd/386
+        - netbsd/amd64
+        - netbsd/386
+        - dragonfly/amd64
+        - linux/arm
+        - linux/arm64
+        - freebsd/arm
+        - openbsd/arm
+        - linux/mips64
+        - linux/mips64le
+        - netbsd/arm
+        - linux/ppc64
+        - linux/ppc64le
+        - linux/s390x
