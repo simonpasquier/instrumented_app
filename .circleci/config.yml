@@ -6,6 +6,8 @@ commands:
       Setup the minimal environment for the CI.
     steps:
     - checkout
+    - run: go version
+    - run: go env
     - run: make promu
 
 jobs:
