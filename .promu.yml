@@ -6,7 +6,7 @@ build:
     binaries:
         - name: instrumented_app
           path: .
-    flags: -tags netgo
+    flags: -tags netgo -a
     ldflags: |
         -X github.com/simonpasquier/instrumented_app/version.Revision={{ printf "%s-%.8s" .Version .Revision }}
         -X github.com/simonpasquier/instrumented_app/version.BuildDate={{ date "20060102-15:04:05" }}
